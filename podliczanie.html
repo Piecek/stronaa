@@ -1,0 +1,233 @@
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podliczanie zamówienia</title>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #ff9a9e, #fad0c4);
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            padding: 20px;
+            color: white;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        .order-summary {
+            margin: 20px auto;
+            width: 80%;
+            max-width: 800px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .order-summary h2 {
+            font-size: 24px;
+            color: #444;
+        }
+        .order-summary p {
+            margin: 10px 0;
+        }
+        .product-price {
+            margin-top: 10px;
+            font-size: 18px;
+            color: green;
+        }
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .calculate-btn, .print-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+        }
+        .calculate-btn:hover, .print-btn:hover {
+            background-color: #45a049;
+        }
+
+        @media print {
+            body {
+                background: white;
+                font-size: 12px; /* Adjust font size for printing */
+            }
+            .printable-container {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr); /* Two columns */
+                gap: 10px;
+                margin: 0;
+                padding: 0;
+            }
+            .printable-item {
+                border: 1px solid #ccc;
+                padding: 10px;
+                text-align: center;
+                box-sizing: border-box;
+            }
+            h3, p {
+                margin: 5px 0;
+            }
+            /* Additional styling for better print layout */
+            .printable-item h3 {
+                font-size: 14px;
+            }
+            .printable-item p {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Podliczanie zamówienia</h1>
+
+    <div id="orderSummary" class="order-summary"></div>
+
+    <div class="button-container">
+        <button class="calculate-btn" onclick="calculateTotal()">Podlicz cenę</button>
+        <button class="print-btn" onclick="printSummary()">Drukuj podsumowanie</button>
+    </div>
+
+    <div id="calculatedPrice" class="order-summary"></div>
+
+    <script>
+        window.onload = function() {
+            const orderData = JSON.parse(localStorage.getItem('orderData'));
+            const productPrices = JSON.parse(localStorage.getItem('productPrices')) || {};
+            const orderSummary = document.getElementById('orderSummary');
+
+            if (!orderData || !productPrices) {
+                orderSummary.innerHTML = '<p>Brak poprawnych danych do podliczenia.</p>';
+                return;
+            }
+
+            const products = orderData.products;
+            let summaryHTML = '';
+
+            for (const client in products) {
+                summaryHTML += `<h2>Klient: ${client}</h2>`;
+                for (const product in products[client]) {
+                    const quantity = products[client][product];
+                    for (let i = 0; i < quantity; i++) {
+                        summaryHTML += `<p>${product} (${i + 1}): <input type='text' placeholder='Wpisz wagę' data-client='${client}' data-product='${product}' class='weightInput'></p>`;
+                    }
+                }
+            }
+
+            orderSummary.innerHTML = summaryHTML;
+        };
+
+        function calculateTotal() {
+            const productPrices = JSON.parse(localStorage.getItem('productPrices')) || {};
+            const weightInputs = document.querySelectorAll('.weightInput');
+            const clientTotals = {};
+            let globalTotal = 0;
+
+            weightInputs.forEach(input => {
+                const client = input.getAttribute('data-client');
+                const product = input.getAttribute('data-product');
+                const weight = parseFloat(input.value) || 0;
+                const pricePerKg = productPrices[product] || 0;
+                const productTotal = weight * pricePerKg;
+
+                if (!clientTotals[client]) {
+                    clientTotals[client] = {
+                        total: 0,
+                        details: []
+                    };
+                }
+                clientTotals[client].total += productTotal;
+                clientTotals[client].details.push({ product, weight, pricePerKg, productTotal });
+                globalTotal += productTotal;
+            });
+
+            let calculatedHTML = '<h2>Podsumowanie:</h2>';
+            for (const client in clientTotals) {
+                calculatedHTML += `<h3>${client}</h3>`;
+                clientTotals[client].details.forEach(detail => {
+                    calculatedHTML += `<p>${detail.product}: ${detail.productTotal.toFixed(2)} zł</p>`; // Only show final price
+                });
+                calculatedHTML += `<p><strong>Łączna cena dla ${client}: ${clientTotals[client].total.toFixed(2)} zł</strong></p>`;
+            }
+            calculatedHTML += `<h3>Całkowita cena: ${globalTotal.toFixed(2)} zł</h3>`;
+
+            document.getElementById('calculatedPrice').innerHTML = calculatedHTML;
+        }
+
+        function printSummary() {
+            const printWindow = window.open('', '_blank');
+            const productPrices = JSON.parse(localStorage.getItem('productPrices'));
+            const orderData = JSON.parse(localStorage.getItem('orderData'));
+            const products = orderData.products;
+
+            let summaryHTML = '<div class="printable-container">';
+
+            for (const client in products) {
+                summaryHTML += `<div class="printable-item">`;
+                summaryHTML += `<h3>Nazwa klienta: ${client}</h3>`;
+                let clientTotal = 0;
+                for (const product in products[client]) {
+                    const quantity = products[client][product];
+                    const pricePerKg = productPrices[product] || 0;
+                    for (let i = 0; i < quantity; i++) {
+                        const weight = parseFloat(document.querySelector(`input[data-client='${client}'][data-product='${product}']`).value) || 0;
+                        const productTotal = weight * pricePerKg;
+                        summaryHTML += `<p>${product}: ${productTotal.toFixed(2)} zł</p>`; // Only show final price
+                        clientTotal += productTotal; // Calculate total based on the actual weight * price per kg
+                    }
+                }
+                summaryHTML += `<p><strong>Łączna cena: ${clientTotal.toFixed(2)} zł</strong></p>`;
+                summaryHTML += '</div>';
+            }
+
+            summaryHTML += '</div>';
+
+            const styles = `
+                <style>
+                    body {
+                        font-family: 'Poppins', sans-serif;
+                        background-color: white;
+                    }
+                    .printable-container {
+                        display: grid;
+                        grid-template-columns: repeat(2, 1fr); /* Two columns */
+                        gap: 15px;
+                        margin: 20px;
+                    }
+                    .printable-item {
+                        padding: 15px;
+                        border: 1px solid #ccc;
+                        margin-bottom: 10px;
+                        text-align: center;
+                        box-sizing: border-box;
+                    }
+                    h3, p {
+                        margin: 5px 0;
+                    }
+                </style>
+            `;
+            printWindow.document.head.innerHTML += styles;
+
+            printWindow.document.write(summaryHTML);
+            printWindow.document.close();
+            setTimeout(function() {
+                printWindow.print();
+            }, 500); // Adding delay to ensure content loads
+        }
+    </script>
+
+</body>
+</html>

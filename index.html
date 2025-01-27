@@ -1,0 +1,254 @@
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strona zamówień</title>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #89fffd, #ef32d9);
+            color: #444;
+        }
+        h1 {
+            text-align: center;
+            padding: 20px;
+            color: white;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        form {
+            margin: 20px auto;
+            width: 80%;
+            max-width: 600px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1em;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        table {
+            width: 90%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border-radius: 10px;
+        }
+        th, td {
+            padding: 15px;
+            text-align: center;
+        }
+        th {
+            background: #f7f7f7;
+        }
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        tr:hover {
+            background: #f1f1f1;
+        }
+        .error {
+            color: red;
+            font-size: 0.9em;
+            margin-top: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Strona zamówień</h1>
+    <form id="orderForm">
+        <label for="clientName">Nazwa klienta:</label>
+        <input type="text" id="clientName" required>
+        <label for="product">Produkt:</label>
+        <input type="text" id="product" list="productList" required>
+        <datalist id="productList">
+            <option value="Jabłka">
+            <option value="Pomarańcze">
+            <option value="Banany">
+            <option value="Winogrona">
+        </datalist>
+        <label for="quantity">Ilość:</label>
+        <input type="number" id="quantity" min="1" step="1" required>
+        <div id="formError" class="error"></div>
+        <button type="button" onclick="addProduct()">Dodaj do zamówienia</button>
+        <button type="button" onclick="finishOrder()">Koniec</button>
+    </form>
+
+    <table id="orderTable">
+        <thead>
+            <tr>
+                <th>Klient</th>
+                <th>Jabłka</th>
+                <th>Pomarańcze</th>
+                <th>Banany</th>
+                <th>Winogrona</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Zamówienia będą dodawane tutaj -->
+        </tbody>
+        <tfoot>
+            <tr id="totalsRow">
+                <td>Suma</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <h2 style="text-align: center;">Tabela cen produktów</h2>
+    <table id="priceTable">
+        <thead>
+            <tr>
+                <th>Produkt</th>
+                <th>Cena za kg (zł)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Jabłka</td>
+                <td><input type="number" value="4.50" step="0.01" onchange="updatePrice('Jabłka', this.value)"></td>
+            </tr>
+            <tr>
+                <td>Pomarańcze</td>
+                <td><input type="number" value="5.00" step="0.01" onchange="updatePrice('Pomarańcze', this.value)"></td>
+            </tr>
+            <tr>
+                <td>Banany</td>
+                <td><input type="number" value="6.00" step="0.01" onchange="updatePrice('Banany', this.value)"></td>
+            </tr>
+            <tr>
+                <td>Winogrona</td>
+                <td><input type="number" value="8.00" step="0.01" onchange="updatePrice('Winogrona', this.value)"></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script>
+        const orderTable = document.getElementById('orderTable');
+        const orderBody = orderTable.querySelector('tbody');
+        const products = ["Jabłka", "Pomarańcze", "Banany", "Winogrona"];
+        let prices = {
+            "Jabłka": 4.50,
+            "Pomarańcze": 5.00,
+            "Banany": 6.00,
+            "Winogrona": 8.00
+        };
+
+        let clientOrders = {};
+
+        function addProduct() {
+            const clientName = document.getElementById('clientName').value.trim();
+            const product = document.getElementById('product').value.trim();
+            const quantity = parseInt(document.getElementById('quantity').value.trim(), 10);
+            const errorDiv = document.getElementById('formError');
+            errorDiv.textContent = "";
+
+            if (!clientName || !product || isNaN(quantity) || quantity <= 0) {
+                errorDiv.textContent = "Wprowadź poprawne dane dotyczące klienta, produktu i ilości!";
+                return;
+            }
+
+            if (!products.includes(product)) {
+                errorDiv.textContent = `Produkt "${product}" nie znajduje się na liście.`;
+                return;
+            }
+
+            let clientRow = Array.from(orderBody.rows).find(row => row.cells[0].textContent === clientName);
+
+            if (!clientRow) {
+                clientRow = document.createElement('tr');
+                const clientCell = document.createElement('td');
+                clientCell.textContent = clientName;
+                clientRow.appendChild(clientCell);
+
+                products.forEach(() => {
+                    const newCell = document.createElement('td');
+                    newCell.textContent = "0";
+                    clientRow.appendChild(newCell);
+                });
+
+                orderBody.appendChild(clientRow);
+                clientOrders[clientName] = {};
+            }
+
+            const productIndex = products.indexOf(product) + 1;
+            const productCell = clientRow.cells[productIndex];
+            productCell.textContent = parseInt(productCell.textContent, 10) + quantity;
+            clientOrders[clientName][product] = (clientOrders[clientName][product] || 0) + quantity;
+            updateTotals();
+
+            document.getElementById('product').value = "";
+            document.getElementById('quantity').value = "";
+        }
+
+        function updateTotals() {
+            const totals = {
+                "Jabłka": 0,
+                "Pomarańcze": 0,
+                "Banany": 0,
+                "Winogrona": 0
+            };
+
+            Array.from(orderBody.rows).forEach(row => {
+                products.forEach((product, index) => {
+                    const quantity = parseInt(row.cells[index + 1].textContent, 10) || 0;
+                    totals[product] += quantity;
+                });
+            });
+
+            const totalCells = document.querySelector('#totalsRow').cells;
+            products.forEach((product, index) => {
+                totalCells[index + 1].textContent = totals[product];
+            });
+        }
+
+        function updatePrice(product, newValue) {
+            prices[product] = parseFloat(newValue);
+            localStorage.setItem('productPrices', JSON.stringify(prices)); // Save prices to localStorage
+            console.log(`Zaktualizowano cenę dla ${product}: ${newValue} zł`);
+        }
+
+        function finishOrder() {
+        const orderData = {
+            products: clientOrders
+        };
+        localStorage.setItem('orderData', JSON.stringify(orderData));
+        localStorage.setItem('productPrices', JSON.stringify(prices));
+        window.location.href = "file:///sdcard/Download/strona/podliczanie.html";
+    }
+    </script>
+
+</body>
+</html>
